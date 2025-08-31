@@ -5,14 +5,17 @@
 //  Created by Yunhao Qian on 8/25/25.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct WaynoteApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Note.self,
+            NoteContent.self,
+            TextNoteContent.self,
+            AudioNoteContent.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +28,7 @@ struct WaynoteApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
         .modelContainer(sharedModelContainer)
     }
