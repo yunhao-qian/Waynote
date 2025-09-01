@@ -6,6 +6,7 @@
 //
 
 import AVFAudio
+import Combine
 import SwiftUI
 import os
 
@@ -15,8 +16,9 @@ struct AudioPlayerView: View {
     @State private var isPlaying: Bool = false
     @State private var progress: TimeInterval = 0
     @State private var player: AVAudioPlayer? = nil
-    @State private var timer: Timer? = nil
     @State private var wasPlayingBeforeSliderEdit: Bool = false
+
+    private let timer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
         let playPauseButtonSize: CGFloat = 32
@@ -24,7 +26,7 @@ struct AudioPlayerView: View {
 
         VStack(alignment: .center, spacing: 8) {
             HStack(spacing: 8) {
-                Text("0:00")
+                Text(formatTime(0))
                     .monospacedDigit()
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -64,6 +66,9 @@ struct AudioPlayerView: View {
                 .accessibilityLabel("Back 15 seconds")
                 Button {
                     if isPlaying {
+                        if let player {
+                            progress = player.currentTime
+                        }
                         pause()
                     } else {
                         play()
@@ -90,8 +95,16 @@ struct AudioPlayerView: View {
                 .accessibilityLabel("Forward 15 seconds")
             }
         }
+        .onReceive(timer) { _ in
+            guard let player, isPlaying else {
+                return
+            }
+            progress = player.currentTime
+            if !player.isPlaying {
+                pause()
+            }
+        }
         .onDisappear {
-            clearTimer()
             player?.stop()
             player = nil
         }
@@ -125,22 +138,11 @@ struct AudioPlayerView: View {
         }
         player.currentTime = progress
         player.play()
-        clearTimer()
-        timer = .scheduledTimer(withTimeInterval: 0.01, repeats: true) { _ in
-            progress = player.currentTime
-            if !player.isPlaying {
-                pause()
-            }
-        }
         isPlaying = true
     }
 
     private func pause() {
-        guard isPlaying else {
-            return
-        }
         player?.pause()
-        clearTimer()
         isPlaying = false
     }
 
@@ -151,11 +153,6 @@ struct AudioPlayerView: View {
         if wasPlaying {
             play()
         }
-    }
-
-    private func clearTimer() {
-        timer?.invalidate()
-        timer = nil
     }
 
     private func formatTime(_ time: TimeInterval) -> String {

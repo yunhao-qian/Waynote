@@ -6,6 +6,7 @@
 //
 
 import AVFAudio
+import Combine
 import SwiftUI
 import os
 
@@ -15,9 +16,12 @@ struct AudioRecorderView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var isRecording = false
+    @State private var recordingStartDate = Date.distantPast
     @State private var recordingDuration: TimeInterval = 0
     @State private var recorder: AVAudioRecorder? = nil
-    @State private var timer: Timer? = nil
+
+    // https://www.hackingwithswift.com/quick-start/swiftui/how-to-use-a-timer-with-swiftui
+    private let timer = Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
 
     private var store: NoteStore {
         NoteStore(context: modelContext)
@@ -46,7 +50,6 @@ struct AudioRecorderView: View {
             Spacer()
             Button {
                 if isRecording {
-                    stopRecording()
                     dismiss()
                 } else {
                     Task {
@@ -70,6 +73,11 @@ struct AudioRecorderView: View {
             .accessibilityLabel(isRecording ? "Stop Recording" : "Start Recording")
         }
         .padding()
+        .onReceive(timer) { date in
+            if isRecording {
+                recordingDuration = date.timeIntervalSince(recordingStartDate)
+            }
+        }
         .onDisappear {
             if isRecording {
                 stopRecording()
@@ -79,6 +87,7 @@ struct AudioRecorderView: View {
         }
     }
 
+    @MainActor
     private func startRecording() async {
         let session = AVAudioSession.sharedInstance()
         guard await AVAudioApplication.requestRecordPermission() else {
@@ -112,24 +121,20 @@ struct AudioRecorderView: View {
         }
         recorder?.record()
         isRecording = true
+        recordingStartDate = .now
         recordingDuration = 0
-        timer = .scheduledTimer(withTimeInterval: 0.01, repeats: true) { _ in
-            recordingDuration += 0.01
-        }
     }
 
     private func stopRecording() {
         recorder?.stop()
         recorder = nil
-        timer?.invalidate()
-        timer = nil
         do {
             content.duration = try AVAudioPlayer(contentsOf: content.fileURL).duration
             AppLogging.general.info("Audio duration: \(content.duration) seconds")
         } catch {
             AppLogging.general.error("Failed to get audio duration: \(error.localizedDescription)")
         }
-        store.save()
+        store.saveNote(content.note!)
         do {
             try AVAudioSession.sharedInstance().setActive(
                 false,
@@ -142,20 +147,17 @@ struct AudioRecorderView: View {
         }
     }
 
+    @MainActor
     private func observeAudioInterruptions() async {
         for await notification in NotificationCenter.default.notifications(
             named: AVAudioSession.interruptionNotification
         ) {
-            guard let userInfo = notification.userInfo,
-                let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
-                let type = AVAudioSession.InterruptionType(rawValue: typeValue)
+            guard let value = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: value)
             else {
                 continue
             }
             if type == .began {
-                if isRecording {
-                    stopRecording()
-                }
                 dismiss()
             }
         }

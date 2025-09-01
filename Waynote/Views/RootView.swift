@@ -5,6 +5,7 @@
 //  Created by Yunhao Qian on 8/31/25.
 //
 
+import CoreSpotlight
 import SwiftUI
 
 struct RootView: View {
@@ -20,6 +21,13 @@ struct RootView: View {
                         switch route {
                         case .note(let note):
                             NoteDetailView(note: note)
+                        }
+                    }
+                    .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                        if let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier]
+                            as? String, let id = UUID(uuidString: identifier)
+                        {
+                            router.navigate(noteID: id, context: modelContext)
                         }
                     }
             } else {

@@ -14,6 +14,7 @@ struct NoteDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var router: Router
     @Query private var children: [Note]
+    @State private var isSearching = false
     @State private var isRenaming = false
     @State private var draftTitle = ""
     @State private var isRecordingAudio = false
@@ -40,7 +41,7 @@ struct NoteDetailView: View {
             case let content as TextNoteContent:
                 Section("Text") {
                     TextNoteDetailView(content: content) {
-                        store.save()
+                        store.saveNote(note)
                     }
                     .listRowBackground(Color.clear)
                 }
@@ -58,7 +59,7 @@ struct NoteDetailView: View {
                         NoteCardView(note: child)
                             .contextMenu {
                                 Button("Open", systemImage: "arrow.up.right.square") {
-                                    router.navigate(id: child.id, context: modelContext)
+                                    router.navigate(noteID: child.id, context: modelContext)
                                 }
                                 Divider()
                                 Button("Delete", systemImage: "trash", role: .destructive) {
@@ -76,7 +77,7 @@ struct NoteDetailView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Add Text", systemImage: "text.document") {
                     let child = store.createTextNote(parent: note)
-                    router.navigate(id: child.id, context: modelContext)
+                    router.navigate(noteID: child.id, context: modelContext)
                 }
                 Button("Add Audio", systemImage: "waveform") {
                     let child = store.createAudioNote(parent: note)
@@ -95,15 +96,25 @@ struct NoteDetailView: View {
                     Image(systemName: "ellipsis")
                 }
             }
+            ToolbarSpacer(.flexible, placement: .topBarTrailing)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("Search", systemImage: "magnifyingglass") {
+                    isSearching = true
+                }
+            }
         }
+        .animation(.default, value: children)
         .alert("Rename Note", isPresented: $isRenaming) {
             TextField("Title", text: $draftTitle)
                 .textInputAutocapitalization(.sentences)
             Button("Cancel", role: .cancel) {}
             Button("OK") {
-                note.title = draftTitle
-                store.save()
+                note.title = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                store.saveNote(note)
             }
+        }
+        .sheet(isPresented: $isSearching) {
+            SearchSheet()
         }
         .sheet(isPresented: $isRecordingAudio) {
             if let recordingAudioContent {
@@ -136,6 +147,9 @@ struct TextNoteDetailView: View {
             .padding(10)
             .background(Color(.tertiarySystemBackground))
             .cornerRadius(16)
+            .onDisappear {
+                onEndEditing()
+            }
     }
 }
 

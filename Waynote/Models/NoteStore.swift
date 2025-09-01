@@ -38,6 +38,7 @@ struct NoteStore {
         context.insert(newNote)
         save()
         AppLogging.general.info("Created new root note with ID \(newNote.id)")
+        SpotlightIndex.index(note: newNote)
         return newNote
     }
 
@@ -61,6 +62,7 @@ struct NoteStore {
         context.insert(note)
         save()
         AppLogging.general.info("Created new text note with ID \(note.id)")
+        SpotlightIndex.index(note: note)
         return note
     }
 
@@ -71,7 +73,13 @@ struct NoteStore {
         context.insert(note)
         save()
         AppLogging.general.info("Created new audio note with ID \(note.id)")
+        SpotlightIndex.index(note: note)
         return note
+    }
+
+    func saveNote(_ note: Note) {
+        save()
+        SpotlightIndex.index(note: note)
     }
 
     func deleteNote(_ note: Note) {
@@ -84,8 +92,12 @@ struct NoteStore {
             context.delete(content)
             save()
         }
+        let id = note.id
         context.delete(note)
         save()
+        AppLogging.general.info("Deleted note with ID \(note.id) and title \"\(note.title)\"")
+
+        SpotlightIndex.delete(noteID: id)
         if let audioFileURL {
             do {
                 try FileManager.default.removeItem(at: audioFileURL)
@@ -98,6 +110,5 @@ struct NoteStore {
                 )
             }
         }
-        AppLogging.general.info("Deleted note with ID \(note.id) and title \"\(note.title)\"")
     }
 }

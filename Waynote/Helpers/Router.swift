@@ -17,10 +17,10 @@ enum Route: Hashable {
 final class Router: ObservableObject {
     @Published var path: [Route] = []
 
-    func navigate(id: UUID, context: ModelContext) {
+    func navigate(noteID: UUID, context: ModelContext) {
         let store = NoteStore(context: context)
-        guard let note = store.fetchNote(withID: id) else {
-            AppLogging.general.error("Failed to navigate to note with ID \(id): Note not found")
+        guard let note = store.fetchNote(withID: noteID) else {
+            AppLogging.general.error("Failed to navigate to note with ID \(noteID): Note not found")
             return
         }
         var chain: [Note] = [note]
